@@ -12,7 +12,8 @@
 
   var S = {
     pw: '', by: '', role: '',
-    people: [], trips: [], vehicles: [], seats: [], fleet: [],
+    people: [], trips: [], vehicles: [], seats: [], fleet: [], options: [],
+    listMode: 'people',
     tripId: '', today: '', 保留天數: 2,
     busy: false, modalOpen: false,
   };
@@ -205,6 +206,7 @@
     S.vehicles = d.vehicles || [];
     S.seats = d.seats || [];
     S.fleet = d.fleet || [];
+    S.options = d.options || [];
     if (d.保留天數 != null) S.保留天數 = Number(d.保留天數) || 0;
     S.today = d.today || 今天();
     // 原本選的那一場被別人刪掉（或過期消失）就退回第一場，不要停在一張空白頁
@@ -270,6 +272,10 @@
     }
     return null;
   }
+  function 常用(類型) {
+    return S.options.filter(function (o) { return o['類型'] === 類型; });
+  }
+
   function 分組人員() {
     var g = {};
     類別序.forEach(function (c) { g[c] = []; });
@@ -291,7 +297,7 @@
     renderVehicles();
     renderDash();
     renderTripList();
-    renderPeople();
+    renderLists();
     renderFleet();
   }
 
@@ -466,6 +472,35 @@
     parent.appendChild(l);
     return node;
   }
+  /**
+   * 可以挑、也可以直接打的欄位。
+   * 用原生 datalist：手機上點下去會跳出常用清單，但照樣可以打新的，
+   * 打了什麼就是什麼——不像 select 只能二選一。
+   */
+  var dlSeq = 0;
+  function pickOrType(value, 清單, placeholder) {
+    var i = input(value, 'text', placeholder);
+    if (!清單.length) return i;
+    var id = 'dl' + (++dlSeq);
+    var dl = document.createElement('datalist');
+    dl.id = id;
+    清單.forEach(function (n) {
+      var o = document.createElement('option');
+      o.value = n;
+      dl.appendChild(o);
+    });
+    i.setAttribute('list', id);
+    i.appendChild(dl);          // datalist 放在 input 裡瀏覽器不吃，下面再搬出去
+    i.dataset.dl = id;
+    i._dl = dl;
+    return i;
+  }
+  /** datalist 必須是 input 的兄弟節點才生效，field() 之後叫這個把它放好 */
+  function attachDL(i) {
+    if (i && i._dl) { i.removeChild(i._dl); i.parentNode.appendChild(i._dl); }
+    return i;
+  }
+
   function input(value, type, placeholder) {
     var i = document.createElement('input');
     i.type = type || 'text';
@@ -508,6 +543,21 @@
         });
         sl.value = sel.name;
         field(box, '這個位子坐誰', sl);
+
+        /* 名單上沒有的人，在這裡當場加——像訂高鐵票時臨時多一位同行者，
+           不應該被趕回「常用名單」那一頁重找一次位子。 */
+        var addNew = el('button', 'btn sm ghost', '＋ 這個人不在名單上，現在加');
+        addNew.type = 'button';
+        addNew.style.cssText = 'margin:-6px 0 12px;padding-left:0;color:var(--accent)';
+        addNew.addEventListener('click', function () {
+          personModal(null, function (p) {
+            // 加完直接回到這一格，並且已經選好剛加的那個人
+            seatModal(v, n);
+            var s2 = document.querySelectorAll('.modal-in select')[0];
+            if (s2 && p) s2.value = p['姓名'];
+          });
+        });
+        box.appendChild(addNew);
 
         var bagWrap = el('div');
         var bagLbl = el('span');
@@ -607,7 +657,9 @@
     var isNew = !v;
     var vs = tripVehicles(t.id);
     modal(isNew ? '新增車輛' : '修改「' + v['車號'] + '」', t['日期'] + '　' + t['名稱'], function (box, close) {
-      var 車號 = field(box, '車號', input(isNew ? '第' + '一二三四五六七八九十'[Math.min(vs.length, 9)] + '車' : v['車號'], 'text', '例：第一車'));
+      var 車號 = attachDL(field(box, '車號（可挑可打）',
+        pickOrType(isNew ? '第' + '一二三四五六七八九十'[Math.min(vs.length, 9)] + '車' : v['車號'],
+          常用('車號').map(function (o) { return o['名稱']; }), '例：第一車、遊覽車A')));
 
       /* 用過的車直接帶入，不用每一場重打車牌、車主與司機電話。
          放在車牌欄上面，因為它要填的就是下面那幾欄。 */
@@ -631,7 +683,9 @@
       }
 
       var 車牌 = field(box, '車牌號碼', input(isNew ? '' : v['車牌號碼'], 'text', '例：ABC-1234'));
-      var 車主 = field(box, '車主（選填）', input(isNew ? '' : v['車主'], 'text', '例：圓道基金會、某某師兄'));
+      var 車主 = attachDL(field(box, '車主（可挑可打）',
+        pickOrType(isNew ? '' : v['車主'], 常用('車主').map(function (o) { return o['名稱']; }),
+          '例：圓道基金會、某某師兄')));
       var 司機 = field(box, '指定司機', input(isNew ? '' : v['司機'], 'text', '司機姓名'));
       var 電話 = field(box, '司機電話（選填）', input(isNew ? '' : v['司機電話'], 'tel', '0912-345-678'));
       var 座位 = field(box, '座位數', input(isNew ? '8' : v['座位數'], 'number'));
@@ -658,7 +712,7 @@
       }
 
       box.appendChild(el('p', 'hint', isNew
-        ? '存檔後這台車會自動記進「常用車」，下次直接從上面帶入就好。'
+        ? '存檔後這台車會記進「常用車」，車號與車主也會記進「常用名單」，下次直接挑就好。'
         : '座位數改少的話，超出的那幾位會自動從車上退出，要重新排。'));
       var act = el('div', 'actions');
       act.style.marginTop = '12px';
@@ -775,6 +829,89 @@
 
   /* ---------- 人員名單 ---------- */
 
+  function renderLists() {
+    var m = S.listMode;
+    document.querySelectorAll('#listMode .mode').forEach(function (b) {
+      b.classList.toggle('on', b.dataset.list === m);
+    });
+    // 每一段的筆數直接寫在切換鈕上，不用點進去才知道有沒有東西
+    var 數 = { people: S.people.length, '車主': 常用('車主').length, '車號': 常用('車號').length };
+    document.querySelectorAll('#listMode .mode b').forEach(function (b) {
+      b.textContent = 數[b.parentNode.dataset.list];
+    });
+    $('listPeople').hidden = m !== 'people';
+    $('listOption').hidden = m === 'people';
+    if (m === 'people') { renderPeople(); return; }
+    $('optHint').textContent = m === '車主'
+      ? '車是誰的。新增車輛時從「車主」欄直接挑，也可以現場打新的——打過的會自動記進這裡。'
+      : '這一場的第幾車。新增車輛時從「車號」欄直接挑，也可以現場打新的（例如「遊覽車A」「小巴1號」）。';
+    $('btnAddOption').textContent = '＋ 新增' + m;
+    $('qOption').placeholder = '搜尋' + m;
+    renderOptions();
+  }
+
+  function renderOptions() {
+    var m = S.listMode;
+    var host = $('optionList');
+    var q = ($('qOption').value || '').trim();
+    host.innerHTML = '';
+    var list = 常用(m).filter(function (o) { return !q || o['名稱'].indexOf(q) >= 0; });
+    if (!list.length) {
+      host.appendChild(el('p', 'empty', q ? '找不到「' + q + '」。' : '還沒有常用' + m + '。'));
+      return;
+    }
+    var card = el('div', 'card');
+    list.forEach(function (o, i) {
+      var row = el('div', 'seat');
+      row.style.padding = '7px 0';
+      row.appendChild(el('span', 'no', String(i + 1)));
+      var nm = el('span', 'nm', o['名稱']);
+      var 註 = [];
+      if (Number(o['使用次數']) > 0) 註.push('用過 ' + o['使用次數'] + ' 次');
+      if (o['最後使用']) 註.push('最後 ' + o['最後使用']);
+      if (註.length) nm.appendChild(el('small', null, 註.join('　·　')));
+      row.appendChild(nm);
+      if (isAdmin()) {
+        var b1 = el('button', 'btn sm go', '改');
+        b1.addEventListener('click', function () { optionModal(m, o); });
+        var b2 = el('button', 'btn sm go danger', '刪');
+        b2.addEventListener('click', function () {
+          if (!confirm('把「' + o['名稱'] + '」從常用' + m + '移除？\n\n只是不再出現在下拉裡，已經排好的車一個字都不會動。')) return;
+          write('deleteOption', { id: o.id }).then(function (d) { if (d && d.ok) { toast('已移除', 'good'); reload(); } });
+        });
+        row.appendChild(b1); row.appendChild(b2);
+      }
+      card.appendChild(row);
+    });
+    host.appendChild(card);
+  }
+
+  function optionModal(類型, o) {
+    var isNew = !o;
+    modal(isNew ? '新增常用' + 類型 : '修改「' + o['名稱'] + '」', null, function (box, close) {
+      var nm = field(box, 類型, input(isNew ? '' : o['名稱'], 'text',
+        類型 === '車號' ? '例：第一車、遊覽車A、小巴1號' : '例：圓道基金會、某某師兄'));
+      box.appendChild(el('p', 'hint', '加進來之後，新增車輛時就可以直接從下拉挑。'));
+      var act = el('div', 'actions');
+      act.style.marginTop = '12px';
+      var save = el('button', 'btn primary', '儲存');
+      save.style.flex = '1 1 auto';
+      var cancel = el('button', 'btn ghost', '取消');
+      act.appendChild(save); act.appendChild(cancel);
+      box.appendChild(act);
+      cancel.addEventListener('click', close);
+      save.addEventListener('click', function () {
+        save.disabled = true;
+        write('saveOption', { option: { id: isNew ? '' : o.id, '類型': 類型, '名稱': nm.value.trim() } })
+          .then(function (d) {
+            save.disabled = false;
+            if (!d || !d.ok) return;
+            close(); toast('已存檔', 'good'); reload();
+          });
+      });
+    });
+  }
+
   function renderPeople() {
     var host = $('peopleList');
     if (!host) return;
@@ -813,9 +950,9 @@
     if (!總) host.appendChild(el('p', 'empty', q ? '找不到「' + q + '」。' : '名單是空的。'));
   }
 
-  function personModal(p) {
+  function personModal(p, onSaved) {
     var isNew = !p;
-    modal(isNew ? '新增人員' : '修改「' + p['姓名'] + '」', null, function (box, close) {
+    modal(isNew ? '新增乘車人' : '修改「' + p['姓名'] + '」', null, function (box, close) {
       var 姓名 = field(box, '姓名／法號', input(isNew ? '' : p['姓名'], 'text', '例：釋星源'));
       var sl = document.createElement('select');
       類別序.forEach(function (c) {
@@ -842,7 +979,10 @@
         }).then(function (d) {
           save.disabled = false;
           if (!d || !d.ok) return;
-          close(); toast('已存檔', 'good'); reload();
+          close(); toast('已存檔', 'good');
+          // 從排座位那一頁現場加人時，存完要把人帶回那一格，不要讓人再找一次
+          if (onSaved) reload().then(function () { onSaved(d.person); });
+          else reload();
         });
       });
     });
@@ -1089,6 +1229,11 @@
     $('btnAddPerson').addEventListener('click', function () { personModal(null); });
     $('btnPrint').addEventListener('click', function () { window.print(); });
     $('qPeople').addEventListener('input', renderPeople);
+    $('qOption').addEventListener('input', renderOptions);
+    $('btnAddOption').addEventListener('click', function () { optionModal(S.listMode, null); });
+    document.querySelectorAll('#listMode .mode').forEach(function (b) {
+      b.addEventListener('click', function () { S.listMode = b.dataset.list; renderLists(); });
+    });
     $('btnAddFleet').addEventListener('click', function () { fleetModal(null); });
     $('qFleet').addEventListener('input', renderFleet);
 

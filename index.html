@@ -49,7 +49,7 @@
     <button role="tab" data-page="seat" aria-selected="true">排車</button>
     <button role="tab" data-page="dash" aria-selected="false">總覽</button>
     <button role="tab" data-page="trips" data-admin aria-selected="false" hidden>行程</button>
-    <button role="tab" data-page="people" data-admin aria-selected="false" hidden>人員名單</button>
+    <button role="tab" data-page="people" data-admin aria-selected="false" hidden>常用名單</button>
     <button role="tab" data-page="fleet" data-admin aria-selected="false" hidden>常用車</button>
     <button role="tab" data-page="logs" data-admin aria-selected="false" hidden>紀錄</button>
     <button role="tab" data-page="setting" data-admin aria-selected="false" hidden>設定</button>
@@ -98,17 +98,34 @@
     <div id="tripList"></div>
   </section>
 
-  <!-- ---------- 人員名單 ---------- -->
+  <!-- ---------- 常用名單 ---------- -->
   <section class="page" id="page-people">
-    <p class="hint" style="margin:0 0 12px">
-      常住法師依比丘、比丘尼、沙彌、沙彌尼順序排列，排座位時的下拉選單就照這個順序。
-      臨時同行的人按下面「新增人員」加進來，之後也可以刪掉。
-    </p>
-    <div class="actions" style="margin-bottom:14px">
-      <button class="btn ok" id="btnAddPerson">＋ 新增人員</button>
-      <input class="box" id="qPeople" type="search" placeholder="搜尋姓名" style="flex:1 1 160px;max-width:240px">
+    <div class="modes" id="listMode">
+      <button type="button" class="mode on" data-list="people">乘車人 <b></b></button>
+      <button type="button" class="mode" data-list="車主">車主 <b></b></button>
+      <button type="button" class="mode" data-list="車號">車號 <b></b></button>
     </div>
-    <div id="peopleList"></div>
+
+    <div id="listPeople">
+      <p class="hint" style="margin:0 0 12px">
+        常住法師依比丘、比丘尼、沙彌、沙彌尼順序排列，排座位時的下拉選單就照這個順序。
+        臨時同行的居士、義工、司機按「＋ 新增乘車人」加進來，之後也可以刪掉。
+      </p>
+      <div class="actions" style="margin-bottom:14px">
+        <button class="btn ok" id="btnAddPerson">＋ 新增乘車人</button>
+        <input class="box" id="qPeople" type="search" placeholder="搜尋姓名" style="flex:1 1 160px;max-width:240px">
+      </div>
+      <div id="peopleList"></div>
+    </div>
+
+    <div id="listOption" hidden>
+      <p class="hint" id="optHint" style="margin:0 0 12px"></p>
+      <div class="actions" style="margin-bottom:14px">
+        <button class="btn ok" id="btnAddOption">＋ 新增</button>
+        <input class="box" id="qOption" type="search" placeholder="搜尋" style="flex:1 1 160px;max-width:240px">
+      </div>
+      <div id="optionList"></div>
+    </div>
   </section>
 
   <!-- ---------- 常用車 ---------- -->

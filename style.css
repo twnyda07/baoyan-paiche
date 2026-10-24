@@ -179,7 +179,11 @@ nav.tabs button[aria-selected="true"] { background: var(--accent); color: #fff; 
 .seat .nm small { display: block; font-size: .76rem; color: var(--ink-3); }
 .seat .bags { flex: 0 0 auto; font-size: .82rem; color: var(--ink-2); white-space: nowrap; }
 .seat .bags b { font-variant-numeric: tabular-nums; }
-.seat .go { flex: 0 0 auto; min-height: 38px; min-width: 44px; padding: 6px 12px; }
+.seat .go {
+  flex: 0 0 auto; min-height: 38px; min-width: 44px; padding: 6px 12px;
+  /* 一列上放兩顆鈕（改／刪）時，不加這個「刪」會被擠成直排 */
+  white-space: nowrap;
+}
 
 /* ---------- 彈出視窗 ---------- */
 .modal { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-end; justify-content: center; }
