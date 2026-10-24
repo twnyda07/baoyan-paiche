@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>排車座位系統 · 寶嚴山寶嚴禪寺</title>
+<link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+
+<!-- ============ 登入 ============ -->
+<div id="gate">
+  <form class="box2" id="gateForm" autocomplete="off">
+    <h1>排車座位系統</h1>
+    <p class="sub">寶嚴山寶嚴禪寺</p>
+    <div class="card">
+      <label class="field">
+        <span>密碼</span>
+        <input type="password" id="pw" name="gate-pw-q7w" autocomplete="new-password" required>
+      </label>
+      <!-- 登記人只有工作人員要填。共用裝置，所以不記在瀏覽器裡，每次進來重填 -->
+      <label class="field" id="byField">
+        <span>登記人（你的法號或姓名）</span>
+        <input type="text" id="by" name="gate-by-q7w" autocomplete="off" placeholder="例：釋星源">
+      </label>
+      <button class="btn primary" type="submit" style="width:100%" id="gateBtn">進入系統</button>
+      <p class="hint" id="gateMsg" style="min-height:1.3em;text-align:center"></p>
+      <p class="hint" style="margin:6px 0 0">
+        只是要看排到哪一台車的話，用<b>公開密碼 guest</b> 進來就好，不用填登記人，也不會動到任何資料。
+      </p>
+    </div>
+    <p class="hint" id="gateDiag" style="font-size:.76rem"></p>
+  </form>
+</div>
+
+<!-- ============ 主畫面 ============ -->
+<header class="top" hidden id="topbar">
+  <div class="top-in">
+    <div class="brand">排車座位<small>寶嚴山寶嚴禪寺</small></div>
+    <div class="top-right">
+      <span class="tag" id="hdWho" hidden></span>
+      <span class="tag guest" id="hdGuest" hidden>公開檢視</span>
+      <button class="btn sm ghost" id="btnReload" title="重新載入最新資料">↻ 更新</button>
+      <button class="btn sm ghost" id="btnLogout">登出</button>
+    </div>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-page="seat" aria-selected="true">排車</button>
+    <button role="tab" data-page="dash" aria-selected="false">總覽</button>
+    <button role="tab" data-page="trips" data-admin aria-selected="false" hidden>行程</button>
+    <button role="tab" data-page="people" data-admin aria-selected="false" hidden>人員名單</button>
+    <button role="tab" data-page="logs" data-admin aria-selected="false" hidden>紀錄</button>
+    <button role="tab" data-page="setting" data-admin aria-selected="false" hidden>設定</button>
+  </nav>
+</header>
+
+<div class="wrap" hidden id="main">
+
+  <p class="hint" id="staleHint" hidden style="margin:10px 0 0"></p>
+
+  <!-- ---------- 排車 ---------- -->
+  <section class="page on" id="page-seat">
+    <div class="trips" id="tripBar"></div>
+    <div class="note" id="tripInfo" hidden style="margin-bottom:14px"></div>
+    <div class="actions noprint" id="seatTop" style="margin-bottom:14px">
+      <button class="btn sm ok" id="btnAddVeh" hidden>＋ 新增車輛</button>
+      <button class="btn sm" id="btnPrint">列印這場排車表</button>
+    </div>
+    <div id="vehList"></div>
+  </section>
+
+  <!-- ---------- 總覽 ---------- -->
+  <section class="page" id="page-dash">
+    <h2 class="ttl" id="dashTtl">這一場的統計</h2>
+    <div class="stats" id="dashStats"></div>
+
+    <h2 class="ttl">行李</h2>
+    <p class="hint" style="margin:0 0 10px">每台車要搬幾件、放哪裡。司機看這一段就夠。</p>
+    <div id="dashBags"></div>
+
+    <h2 class="ttl">還沒排到車的人</h2>
+    <p class="hint" style="margin:0 0 10px">名單上有、但這一場還沒給位子的。出發前這一段要是空的。</p>
+    <div id="dashLeft"></div>
+
+    <h2 class="ttl">全部人在哪一台</h2>
+    <div class="scroller"><table class="tbl" id="dashAll"></table></div>
+  </section>
+
+  <!-- ---------- 行程 ---------- -->
+  <section class="page" id="page-trips">
+    <div class="note warn" style="margin-bottom:14px">
+      行程日期過了，系統會自動把整場（含車輛與座位）刪掉，不保留。要留底請在當天先列印或截圖。
+    </div>
+    <button class="btn ok" id="btnAddTrip" style="margin-bottom:14px">＋ 新增行程</button>
+    <div id="tripList"></div>
+  </section>
+
+  <!-- ---------- 人員名單 ---------- -->
+  <section class="page" id="page-people">
+    <p class="hint" style="margin:0 0 12px">
+      常住法師依比丘、比丘尼、沙彌、沙彌尼順序排列，排座位時的下拉選單就照這個順序。
+      臨時同行的人按下面「新增人員」加進來，之後也可以刪掉。
+    </p>
+    <div class="actions" style="margin-bottom:14px">
+      <button class="btn ok" id="btnAddPerson">＋ 新增人員</button>
+      <input class="box" id="qPeople" type="search" placeholder="搜尋姓名" style="flex:1 1 160px;max-width:240px">
+    </div>
+    <div id="peopleList"></div>
+  </section>
+
+  <!-- ---------- 紀錄 ---------- -->
+  <section class="page" id="page-logs">
+    <p class="hint" style="margin:0 0 12px">最近 300 筆異動，新的在上面。誰排的、誰改的、誰刪的都在這裡。</p>
+    <div class="scroller"><table class="tbl" id="logTable"></table></div>
+  </section>
+
+  <!-- ---------- 設定 ---------- -->
+  <section class="page" id="page-setting">
+    <div class="card">
+      <h3 style="margin:0 0 10px">更換密碼</h3>
+      <div class="row">
+        <label class="field"><span>工作人員密碼（可讀可寫）</span><input type="text" id="pwAdmin" autocomplete="off"></label>
+        <label class="field"><span>公開密碼（只能看）</span><input type="text" id="pwGuest" autocomplete="off"></label>
+      </div>
+      <p class="hint">兩組不可以一樣。改完這台裝置會重新登入一次。</p>
+      <div class="actions"><button class="btn primary" id="btnSavePw">儲存密碼</button></div>
+    </div>
+    <div class="card">
+      <h3 style="margin:0 0 10px">後端網址</h3>
+      <label class="field"><span>Apps Script /exec 網址</span><input type="text" id="backendUrl" autocomplete="off"></label>
+      <p class="hint">只存在這一台瀏覽器，不會影響別人。平常不用動。</p>
+      <div class="actions">
+        <button class="btn" id="btnSaveBackend">儲存</button>
+        <button class="btn ghost" id="btnResetBackend">改回預設</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div id="modalHost"></div>
+<div id="toastHost"></div>
+
+<script src="config.js?v=1"></script>
+<script src="app.js?v=1"></script>
+</body>
+</html>
