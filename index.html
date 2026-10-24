@@ -50,6 +50,7 @@
     <button role="tab" data-page="dash" aria-selected="false">總覽</button>
     <button role="tab" data-page="trips" data-admin aria-selected="false" hidden>行程</button>
     <button role="tab" data-page="people" data-admin aria-selected="false" hidden>人員名單</button>
+    <button role="tab" data-page="fleet" data-admin aria-selected="false" hidden>常用車</button>
     <button role="tab" data-page="logs" data-admin aria-selected="false" hidden>紀錄</button>
     <button role="tab" data-page="setting" data-admin aria-selected="false" hidden>設定</button>
   </nav>
@@ -90,7 +91,8 @@
   <!-- ---------- 行程 ---------- -->
   <section class="page" id="page-trips">
     <div class="note warn" style="margin-bottom:14px">
-      行程日期過了，系統會自動把整場（含車輛與座位）刪掉，不保留。要留底請在當天先列印或截圖。
+      行程結束後<b>再留兩天</b>（當天、隔天、後天都還看得到），第三天系統會自動把整場連同車輛與座位刪掉，不保留。
+      要留底請在那之前按「列印這場排車表」。
     </div>
     <button class="btn ok" id="btnAddTrip" style="margin-bottom:14px">＋ 新增行程</button>
     <div id="tripList"></div>
@@ -107,6 +109,19 @@
       <input class="box" id="qPeople" type="search" placeholder="搜尋姓名" style="flex:1 1 160px;max-width:240px">
     </div>
     <div id="peopleList"></div>
+  </section>
+
+  <!-- ---------- 常用車 ---------- -->
+  <section class="page" id="page-fleet">
+    <p class="hint" style="margin:0 0 12px">
+      排過一次的車會自動記在這裡（以<b>車牌號碼</b>認人，同一張車牌就是同一台）。
+      下次新增車輛時從「從用過的車帶入」直接選，車牌、車主、司機、電話、座位數都會自動填好。
+    </p>
+    <div class="actions" style="margin-bottom:14px">
+      <button class="btn ok" id="btnAddFleet">＋ 手動新增一台</button>
+      <input class="box" id="qFleet" type="search" placeholder="搜尋車牌、車主或司機" style="flex:1 1 160px;max-width:260px">
+    </div>
+    <div id="fleetList"></div>
   </section>
 
   <!-- ---------- 紀錄 ---------- -->

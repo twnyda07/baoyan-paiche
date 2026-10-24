@@ -12,8 +12,8 @@
 
   var S = {
     pw: '', by: '', role: '',
-    people: [], trips: [], vehicles: [], seats: [],
-    tripId: '', today: '',
+    people: [], trips: [], vehicles: [], seats: [], fleet: [],
+    tripId: '', today: '', 保留天數: 2,
     busy: false, modalOpen: false,
   };
 
@@ -103,15 +103,24 @@
     var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
     return '週' + '日一二三四五六'[d.getDay()];
   }
+  /** 這一場距今還有幾天；已經結束的改說還剩幾天會被自動刪掉 */
   function 還有幾天(ymd) {
-    var t = S.today || 今天();
-    if (ymd === t) return '就是今天';
-    var a = new Date(t + 'T00:00:00'), b = new Date(ymd + 'T00:00:00');
-    var n = Math.round((b - a) / 86400000);
+    var n = 差幾天(ymd);
+    if (n === 0) return '就是今天';
     if (n === 1) return '明天';
     if (n > 1) return n + ' 天後';
-    return '';
+    // 已結束：保留 S.保留天數 天，第 保留天數+1 天刪掉
+    var 剩 = S.保留天數 + 1 + n;        // n 是負的
+    if (剩 <= 0) return '已結束 · 即將自動刪除';
+    if (剩 === 1) return '已結束 · 明天自動刪除';
+    return '已結束 · ' + 剩 + ' 天後自動刪除';
   }
+  function 差幾天(ymd) {
+    var t = S.today || 今天();
+    var a = new Date(t + 'T00:00:00'), b = new Date(ymd + 'T00:00:00');
+    return Math.round((b - a) / 86400000);
+  }
+  function 已結束(ymd) { return 差幾天(ymd) < 0; }
 
   function isAdmin() { return S.role === 'admin'; }
 
@@ -195,6 +204,8 @@
     S.trips = d.trips || [];
     S.vehicles = d.vehicles || [];
     S.seats = d.seats || [];
+    S.fleet = d.fleet || [];
+    if (d.保留天數 != null) S.保留天數 = Number(d.保留天數) || 0;
     S.today = d.today || 今天();
     // 原本選的那一場被別人刪掉（或過期消失）就退回第一場，不要停在一張空白頁
     if (!S.trips.some(function (t) { return t.id === S.tripId; })) {
@@ -281,6 +292,7 @@
     renderDash();
     renderTripList();
     renderPeople();
+    renderFleet();
   }
 
   function renderTripBar() {
@@ -294,7 +306,8 @@
       return;
     }
     S.trips.forEach(function (t) {
-      var b = el('button', 'tripb' + (t.id === S.tripId ? ' on' : '') + (t['日期'] === S.today ? ' soon' : ''));
+      var b = el('button', 'tripb' + (t.id === S.tripId ? ' on' : '') +
+        (t['日期'] === S.today ? ' soon' : '') + (已結束(t['日期']) ? ' done' : ''));
       b.type = 'button';
       b.appendChild(el('b', null, t['名稱']));
       var 近 = 還有幾天(t['日期']);
@@ -352,6 +365,7 @@
     var meta = el('div', 'veh-meta');
     meta.appendChild(mi('司機', v['司機'] || '尚未指定'));
     if (v['司機電話']) meta.appendChild(mi('電話', v['司機電話']));
+    if (v['車主']) meta.appendChild(mi('車主', v['車主']));
     meta.appendChild(mi('已排', 已坐 + ' / ' + 座位數 + ' 位'));
     meta.appendChild(mi('行李', 行李 + ' 件'));
     if (v['備註']) meta.appendChild(mi('備註', v['備註']));
@@ -594,7 +608,30 @@
     var vs = tripVehicles(t.id);
     modal(isNew ? '新增車輛' : '修改「' + v['車號'] + '」', t['日期'] + '　' + t['名稱'], function (box, close) {
       var 車號 = field(box, '車號', input(isNew ? '第' + '一二三四五六七八九十'[Math.min(vs.length, 9)] + '車' : v['車號'], 'text', '例：第一車'));
+
+      /* 用過的車直接帶入，不用每一場重打車牌、車主與司機電話。
+         放在車牌欄上面，因為它要填的就是下面那幾欄。 */
+      var fleetSel = null;
+      if (S.fleet.length) {
+        fleetSel = document.createElement('select');
+        var o0 = document.createElement('option');
+        o0.value = ''; o0.textContent = '（不帶入，自己填）';
+        fleetSel.appendChild(o0);
+        S.fleet.forEach(function (f) {
+          var o = document.createElement('option');
+          o.value = f.id;
+          var 註 = [];
+          if (f['車主']) 註.push('車主 ' + f['車主']);
+          if (f['司機']) 註.push('司機 ' + f['司機']);
+          if (f['最後使用']) 註.push('上次 ' + f['最後使用']);
+          o.textContent = f['車牌號碼'] + (註.length ? '　' + 註.join('·') : '');
+          fleetSel.appendChild(o);
+        });
+        field(box, '從用過的車帶入', fleetSel);
+      }
+
       var 車牌 = field(box, '車牌號碼', input(isNew ? '' : v['車牌號碼'], 'text', '例：ABC-1234'));
+      var 車主 = field(box, '車主（選填）', input(isNew ? '' : v['車主'], 'text', '例：圓道基金會、某某師兄'));
       var 司機 = field(box, '指定司機', input(isNew ? '' : v['司機'], 'text', '司機姓名'));
       var 電話 = field(box, '司機電話（選填）', input(isNew ? '' : v['司機電話'], 'tel', '0912-345-678'));
       var 座位 = field(box, '座位數', input(isNew ? '8' : v['座位數'], 'number'));
@@ -603,9 +640,26 @@
       行李.min = '0';
       var 備註 = field(box, '備註（選填）', input(isNew ? '' : v['備註'], 'text', '例：九人座、可放輪椅'));
 
-      if (!isNew) {
-        box.appendChild(el('p', 'hint', '座位數改少的話，超出的那幾位會自動從車上退出，要重新排。'));
+      if (fleetSel) {
+        fleetSel.addEventListener('change', function () {
+          var f = S.fleet.filter(function (x) { return x.id === fleetSel.value; })[0];
+          if (!f) return;
+          /* 只填「簿子上有值」的欄位：簿子沒記座位數時，
+             不可以把使用者剛剛打好的 8 清成空白。 */
+          車牌.value = f['車牌號碼'] || 車牌.value;
+          車主.value = f['車主'] || 車主.value;
+          司機.value = f['司機'] || 司機.value;
+          電話.value = f['司機電話'] || 電話.value;
+          座位.value = f['座位數'] || 座位.value;
+          行李.value = f['行李上限'] || 行李.value;
+          備註.value = f['備註'] || 備註.value;
+          toast('已帶入 ' + f['車牌號碼'] + '，可以再改', 'good');
+        });
       }
+
+      box.appendChild(el('p', 'hint', isNew
+        ? '存檔後這台車會自動記進「常用車」，下次直接從上面帶入就好。'
+        : '座位數改少的話，超出的那幾位會自動從車上退出，要重新排。'));
       var act = el('div', 'actions');
       act.style.marginTop = '12px';
       var save = el('button', 'btn primary', '儲存');
@@ -620,7 +674,7 @@
         write('saveVehicle', {
           vehicle: {
             id: isNew ? '' : v.id, '行程id': t.id,
-            '車號': 車號.value.trim(), '車牌號碼': 車牌.value.trim(),
+            '車號': 車號.value.trim(), '車牌號碼': 車牌.value.trim(), '車主': 車主.value.trim(),
             '司機': 司機.value.trim(), '司機電話': 電話.value.trim(),
             '座位數': 座位.value, '行李上限': 行李.value.trim(), '備註': 備註.value.trim(),
             '排序': isNew ? vs.length + 1 : v['排序'],
@@ -653,6 +707,7 @@
       var bits = [t['日期'] + '（' + 星期(t['日期']) + '）'];
       var 近 = 還有幾天(t['日期']);
       if (近) bits.push(近);
+      if (已結束(t['日期'])) c.style.opacity = '.78';
       if (t['集合時間']) bits.push('集合 ' + t['集合時間']);
       if (t['集合地點']) bits.push(t['集合地點']);
       c.appendChild(el('p', 'hint', bits.join('　·　')));
@@ -684,12 +739,14 @@
     var isNew = !t;
     modal(isNew ? '新增行程' : '修改行程', null, function (box, close) {
       var 日期 = field(box, '日期', input(isNew ? '' : t['日期'], 'date'));
-      日期.min = S.today || 今天();
+      // 新行程不可以排到過去；修改既有行程時不設下限，否則剛結束那幾場連存檔都按不下去
+      if (isNew) 日期.min = S.today || 今天();
       var 名稱 = field(box, '行程名稱', input(isNew ? '' : t['名稱'], 'text', '例：高雄圓道禪院法會'));
       var 時間 = field(box, '集合時間（選填）', input(isNew ? '' : t['集合時間'], 'time'));
       var 地點 = field(box, '集合地點（選填）', input(isNew ? '' : t['集合地點'], 'text', '例：寶嚴禪寺山門口'));
       var 備註 = field(box, '備註（選填）', input(isNew ? '' : t['備註'], 'text'));
-      box.appendChild(el('p', 'hint', '日期過了，這一場連同車輛與座位會自動刪除，不保留。'));
+      box.appendChild(el('p', 'hint',
+        '行程結束後再留 ' + S.保留天數 + ' 天，之後這一場連同車輛與座位會自動刪除，不保留。'));
 
       var act = el('div', 'actions');
       act.style.marginTop = '12px';
@@ -805,6 +862,91 @@
         return;
       }
       toast(d.error || '刪不掉', 'bad');
+    });
+  }
+
+  /* ---------- 常用車 ---------- */
+
+  function renderFleet() {
+    var host = $('fleetList');
+    if (!host) return;
+    var q = ($('qFleet').value || '').trim();
+    host.innerHTML = '';
+    var list = S.fleet.filter(function (f) {
+      if (!q) return true;
+      return [f['車牌號碼'], f['車主'], f['司機'], f['備註']].join(' ').indexOf(q) >= 0;
+    });
+    if (!list.length) {
+      host.appendChild(el('p', 'empty', q ? '找不到「' + q + '」。' : '還沒有用過的車。排第一台車之後就會自動出現在這裡。'));
+      return;
+    }
+    list.forEach(function (f) {
+      var c = el('div', 'card');
+      var h = el('h3');
+      h.style.cssText = 'margin:0 0 6px;font-size:1.02rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap';
+      h.appendChild(el('span', 'plate', f['車牌號碼']));
+      if (f['車主']) h.appendChild(el('span', 'tag plain', '車主 ' + f['車主']));
+      c.appendChild(h);
+      var bits = [];
+      bits.push('司機 ' + (f['司機'] || '未填'));
+      if (f['司機電話']) bits.push(f['司機電話']);
+      if (f['座位數']) bits.push(f['座位數'] + ' 座');
+      if (f['行李上限']) bits.push('行李上限 ' + f['行李上限'] + ' 件');
+      c.appendChild(el('p', 'hint', bits.join('　·　')));
+      if (f['備註']) c.appendChild(el('p', 'hint', f['備註']));
+      c.appendChild(el('p', 'hint', '用過 ' + (f['使用次數'] || 0) + ' 次' +
+        (f['最後使用'] ? '　·　最後一次 ' + f['最後使用'] : '')));
+
+      var act = el('div', 'actions');
+      var b1 = el('button', 'btn sm', '修改');
+      b1.addEventListener('click', function () { fleetModal(f); });
+      var b2 = el('button', 'btn sm danger', '從常用車移除');
+      b2.addEventListener('click', function () {
+        if (!confirm('把「' + f['車牌號碼'] + '」從常用車移除？\n\n只是不再出現在帶入清單，已經排好的行程不受影響。')) return;
+        write('deleteFleet', { id: f.id }).then(function (d) { if (d && d.ok) { toast('已移除', 'good'); reload(); } });
+      });
+      act.appendChild(b1); act.appendChild(b2);
+      c.appendChild(act);
+      host.appendChild(c);
+    });
+  }
+
+  function fleetModal(f) {
+    var isNew = !f;
+    modal(isNew ? '新增常用車' : '修改「' + f['車牌號碼'] + '」', null, function (box, close) {
+      var 車牌 = field(box, '車牌號碼', input(isNew ? '' : f['車牌號碼'], 'text', '例：ABC-1234'));
+      var 車主 = field(box, '車主', input(isNew ? '' : f['車主'], 'text', '例：圓道基金會、某某師兄'));
+      var 司機 = field(box, '常用司機', input(isNew ? '' : f['司機'], 'text', '司機姓名'));
+      var 電話 = field(box, '司機電話', input(isNew ? '' : f['司機電話'], 'tel', '0912-345-678'));
+      var 座位 = field(box, '座位數', input(isNew ? '' : f['座位數'], 'number'));
+      座位.min = '1'; 座位.max = '60';
+      var 行李 = field(box, '行李上限件數', input(isNew ? '' : f['行李上限'], 'number'));
+      行李.min = '0';
+      var 備註 = field(box, '備註', input(isNew ? '' : f['備註'], 'text', '例：九人座、可放輪椅'));
+      box.appendChild(el('p', 'hint', '這裡改的是「下次帶入用的底稿」，不會動到已經排好的車。'));
+
+      var act = el('div', 'actions');
+      act.style.marginTop = '12px';
+      var save = el('button', 'btn primary', '儲存');
+      save.style.flex = '1 1 auto';
+      var cancel = el('button', 'btn ghost', '取消');
+      act.appendChild(save); act.appendChild(cancel);
+      box.appendChild(act);
+      cancel.addEventListener('click', close);
+      save.addEventListener('click', function () {
+        save.disabled = true;
+        write('saveFleet', {
+          fleet: {
+            id: isNew ? '' : f.id, '車牌號碼': 車牌.value.trim(), '車主': 車主.value.trim(),
+            '司機': 司機.value.trim(), '司機電話': 電話.value.trim(),
+            '座位數': 座位.value.trim(), '行李上限': 行李.value.trim(), '備註': 備註.value.trim(),
+          },
+        }).then(function (d) {
+          save.disabled = false;
+          if (!d || !d.ok) return;
+          close(); toast('已存檔', 'good'); reload();
+        });
+      });
     });
   }
 
@@ -947,6 +1089,8 @@
     $('btnAddPerson').addEventListener('click', function () { personModal(null); });
     $('btnPrint').addEventListener('click', function () { window.print(); });
     $('qPeople').addEventListener('input', renderPeople);
+    $('btnAddFleet').addEventListener('click', function () { fleetModal(null); });
+    $('qFleet').addEventListener('input', renderFleet);
 
     $('backendUrl').value = backend();
     $('btnSaveBackend').addEventListener('click', function () {

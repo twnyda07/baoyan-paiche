@@ -141,6 +141,10 @@ nav.tabs button[aria-selected="true"] { background: var(--accent); color: #fff; 
 .tripb.on { background: var(--accent); border-color: var(--accent); }
 .tripb.on b, .tripb.on span { color: #fff; }
 .tripb.soon { border-color: var(--warn); }
+/* 已結束但還在保留期的場次：看得出來跟「還沒到」的不一樣，才不會點錯場排人 */
+.tripb.done { opacity: .72; border-style: dashed; }
+.tripb.done b::before { content: "✓ "; color: var(--ink-3); }
+.tripb.done.on { opacity: 1; background: var(--ink-3); border-color: var(--ink-3); }
 
 /* ---------- 車輛卡 ---------- */
 .veh { background: var(--paper-2); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 16px; overflow: hidden; }
